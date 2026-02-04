@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { RefreshCw, Shield, Futbol, Trophy, Info } from 'lucide-react';
+import { RefreshCw, Shield, Trophy, Info } from 'lucide-react';
+import { Icons } from '@/components/icons';
 
 type GameState = 'playing' | 'gameOver';
 type ShotDirection = 'Left' | 'Center' | 'Right';
@@ -75,7 +76,7 @@ export function FootballGame() {
         <CardContent className="space-y-6">
             <div className="flex justify-around text-center p-6 bg-muted rounded-lg">
                 <div>
-                    <p className="text-sm text-muted-foreground flex items-center justify-center gap-2"><Futbol size={16}/> Your Goals</p>
+                    <p className="text-sm text-muted-foreground flex items-center justify-center gap-2"><Icons.Futbol className="w-4 h-4"/> Your Goals</p>
                     <p className="text-5xl font-bold font-headline text-primary">{playerScore}</p>
                 </div>
                  <div>
