@@ -61,28 +61,26 @@ export default function AuthPage() {
     }
   }, [user, isUserLoading, router, firestore, signupForm]);
 
-  const onSignupSubmit = async (values: z.infer<typeof signupSchema>) => {
-    try {
-      initiateEmailSignUp(auth, values.email, values.password);
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Sign-up Failed',
-        description: error.message || 'An unexpected error occurred.',
+  const onSignupSubmit = (values: z.infer<typeof signupSchema>) => {
+    initiateEmailSignUp(auth, values.email, values.password)
+      .catch((error: any) => {
+        toast({
+          variant: 'destructive',
+          title: 'Sign-up Failed',
+          description: error.message || 'An unexpected error occurred.',
+        });
       });
-    }
   };
 
   const onLoginSubmit = (values: z.infer<typeof loginSchema>) => {
-    try {
-      initiateEmailSignIn(auth, values.email, values.password);
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: error.message || 'An unexpected error occurred.',
+    initiateEmailSignIn(auth, values.email, values.password)
+      .catch((error: any) => {
+        toast({
+          variant: 'destructive',
+          title: 'Login Failed',
+          description: error.message || 'An unexpected error occurred.',
+        });
       });
-    }
   };
 
   return (
