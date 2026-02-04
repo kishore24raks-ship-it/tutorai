@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,6 +34,7 @@ export default function AuthPage() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   const signupForm = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
@@ -47,40 +48,54 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (user && !isUserLoading) {
-      // Create user profile if it's a new user from signup
-      if (signupForm.formState.isSubmitSuccessful) {
+      // Create user profile if it's a new user from our signup flow state
+      if (isSigningUp) {
         const { name, email } = signupForm.getValues();
         const userProfileRef = doc(firestore, 'users', user.uid);
         setDocumentNonBlocking(userProfileRef, {
           id: user.uid,
           name: name,
           email: email,
-        }, { merge: true });
+        }, { merge: true }).catch((error) => {
+            toast({
+                variant: 'destructive',
+                title: 'Profile Creation Failed',
+                description: 'Could not save your user profile.',
+            });
+            console.error("Error creating user profile:", error);
+        });
+        setIsSigningUp(false); // Reset the state
       }
       router.push('/dashboard');
     }
-  }, [user, isUserLoading, router, firestore, signupForm]);
+  }, [user, isUserLoading, router, firestore, signupForm, isSigningUp, toast]);
 
-  const onSignupSubmit = (values: z.infer<typeof signupSchema>) => {
-    initiateEmailSignUp(auth, values.email, values.password)
-      .catch((error: any) => {
-        toast({
-          variant: 'destructive',
-          title: 'Sign-up Failed',
-          description: error.message || 'An unexpected error occurred.',
-        });
+  const onSignupSubmit = async (values: z.infer<typeof signupSchema>) => {
+    setIsSigningUp(true); // Set state to indicate signup flow
+    try {
+      await initiateEmailSignUp(auth, values.email, values.password);
+      // The useEffect will handle the redirect and profile creation on user state change.
+    } catch (error: any) {
+      setIsSigningUp(false); // Reset on error
+      toast({
+        variant: 'destructive',
+        title: 'Sign-up Failed',
+        description: error.message || 'An unexpected error occurred.',
       });
+    }
   };
 
-  const onLoginSubmit = (values: z.infer<typeof loginSchema>) => {
-    initiateEmailSignIn(auth, values.email, values.password)
-      .catch((error: any) => {
-        toast({
-          variant: 'destructive',
-          title: 'Login Failed',
-          description: error.message || 'An unexpected error occurred.',
-        });
+  const onLoginSubmit = async (values: z.infer<typeof loginSchema>) => {
+    try {
+      await initiateEmailSignIn(auth, values.email, values.password);
+      // The useEffect will handle the redirect on user state change.
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: error.message || 'An unexpected error occurred.',
       });
+    }
   };
 
   return (
