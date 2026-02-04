@@ -8,6 +8,7 @@ import {
   History,
   LayoutDashboard,
   Palette,
+  Gamepad2,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -33,6 +34,7 @@ const menuItems = [
   { href: '/quiz', label: 'Quiz Generator', icon: FileText },
   { href: '/history', label: 'Quiz History', icon: History },
   { href: '/drawing', label: 'Drawing Tool', icon: Palette },
+  { href: '/game', label: 'Relaxing Game', icon: Gamepad2 },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
