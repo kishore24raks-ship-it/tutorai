@@ -9,7 +9,7 @@ export async function createQuiz(values: GenerateQuizFromTopicInput): Promise<Qu
     const parsedValues = quizFormSchema.parse(values);
     const quizData = await generateQuizFromTopic(parsedValues);
 
-    if (!quizData || !quizData.quiz || quizData.quiz.length === 0) {
+    if (!quizData || !quizData.questions || quizData.questions.length === 0) {
       return { error: 'Failed to generate quiz. The AI model did not return any questions. Please try a different topic.' };
     }
 

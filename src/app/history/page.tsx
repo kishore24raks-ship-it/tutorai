@@ -1,3 +1,7 @@
+'use client';
+
+import { collection, query, orderBy } from 'firebase/firestore';
+import { format } from 'date-fns';
 import {
   Card,
   CardContent,
@@ -15,44 +19,9 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-
-const mockHistory = [
-  {
-    topic: 'Photosynthesis',
-    difficulty: 'easy',
-    score: '5/5',
-    percentage: 100,
-    date: '2023-10-27',
-  },
-  {
-    topic: 'The Roman Empire',
-    difficulty: 'medium',
-    score: '7/10',
-    percentage: 70,
-    date: '2023-10-25',
-  },
-  {
-    topic: 'JavaScript Promises',
-    difficulty: 'hard',
-    score: '3/5',
-    percentage: 60,
-    date: '2023-10-24',
-  },
-  {
-    topic: 'World War II',
-    difficulty: 'medium',
-    score: '9/10',
-    percentage: 90,
-    date: '2023-10-22',
-  },
-  {
-    topic: 'Basic Algebra',
-    difficulty: 'easy',
-    score: '4/5',
-    percentage: 80,
-    date: '2023-10-20',
-  },
-];
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import type { QuizResult } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const getBadgeVariant = (difficulty: string) => {
   switch (difficulty) {
@@ -68,6 +37,92 @@ const getBadgeVariant = (difficulty: string) => {
 };
 
 export default function HistoryPage() {
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
+
+  const historyQuery = useMemoFirebase(() => {
+    if (!user) return null;
+    return query(
+      collection(firestore, 'users', user.uid, 'quiz_results'),
+      orderBy('completionDate', 'desc')
+    );
+  }, [user, firestore]);
+
+  const { data: history, isLoading } = useCollection<QuizResult>(historyQuery);
+  
+  const renderLoading = () => (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-6 w-1/4" />
+        <Skeleton className="h-4 w-1/2" />
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+              <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+              <TableHead><Skeleton className="h-5 w-20" /></TableHead>
+              <TableHead className="text-right"><Skeleton className="h-5 w-20 ml-auto" /></TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[...Array(3)].map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-5 w-32" /></TableCell>
+                <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                <TableCell><Skeleton className="h-5 w-24" /></TableCell>
+                <TableCell className="text-right"><Skeleton className="h-5 w-24 ml-auto" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+
+  const renderEmptyState = () => (
+    <Card className="text-center py-12">
+      <CardHeader>
+        <CardTitle>No History Yet</CardTitle>
+        <CardDescription>You haven't completed any quizzes. Take a quiz to start building your history!</CardDescription>
+      </CardHeader>
+    </Card>
+  );
+  
+  if (isUserLoading || (user && isLoading)) {
+    return (
+      <div className="flex flex-col gap-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight font-headline">Quiz History</h1>
+          <p className="text-muted-foreground">
+            Review your past performance and see how much you've grown.
+          </p>
+        </div>
+        {renderLoading()}
+      </div>
+    )
+  }
+
+  if (!user) {
+     return (
+      <div className="flex flex-col gap-8">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight font-headline">Quiz History</h1>
+          <p className="text-muted-foreground">
+            Review your past performance and see how much you've grown.
+          </p>
+        </div>
+        <Card className="text-center py-12">
+          <CardHeader>
+            <CardTitle>Please Log In</CardTitle>
+            <CardDescription>You need to be logged in to view your quiz history.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div>
@@ -77,38 +132,40 @@ export default function HistoryPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Past Quizzes</CardTitle>
-          <CardDescription>A list of all the quizzes you have completed.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Topic</TableHead>
-                <TableHead>Difficulty</TableHead>
-                <TableHead>Score</TableHead>
-                <TableHead className="text-right">Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockHistory.map((quiz, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{quiz.topic}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={cn('capitalize border-none', getBadgeVariant(quiz.difficulty))}>
-                      {quiz.difficulty}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{quiz.score} ({quiz.percentage}%)</TableCell>
-                  <TableCell className="text-right">{quiz.date}</TableCell>
+      {history && history.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Past Quizzes</CardTitle>
+            <CardDescription>A list of all the quizzes you have completed.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Topic</TableHead>
+                  <TableHead>Difficulty</TableHead>
+                  <TableHead>Score</TableHead>
+                  <TableHead className="text-right">Date</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {history.map((quiz) => (
+                  <TableRow key={quiz.id}>
+                    <TableCell className="font-medium">{quiz.topic}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn('capitalize border-none', getBadgeVariant(quiz.difficulty))}>
+                        {quiz.difficulty}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{quiz.score}/{quiz.totalQuestions} ({Math.round((quiz.score / quiz.totalQuestions) * 100)}%)</TableCell>
+                    <TableCell className="text-right">{format(new Date(quiz.completionDate), 'yyyy-MM-dd')}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : renderEmptyState()}
     </div>
   );
 }

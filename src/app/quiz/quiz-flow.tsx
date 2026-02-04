@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { collection } from 'firebase/firestore';
 import { Loader2, ArrowRight, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,12 +27,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { createQuiz } from './actions';
 import { quizFormSchema } from './schema';
-import type { Quiz, UserAnswer, QuizQuestion } from '@/lib/types';
+import type { Quiz, UserAnswer, QuizQuestion, QuizResult } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useUser, useFirestore, addDocumentNonBlocking } from '@/firebase';
 
 type View = 'form' | 'loading' | 'taking' | 'results';
 
@@ -43,6 +44,8 @@ export function QuizFlow() {
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [score, setScore] = useState(0);
   const { toast } = useToast();
+  const { user } = useUser();
+  const firestore = useFirestore();
 
   const form = useForm<z.infer<typeof quizFormSchema>>({
     resolver: zodResolver(quizFormSchema),
@@ -54,6 +57,14 @@ export function QuizFlow() {
   });
 
   async function onSubmit(values: z.infer<typeof quizFormSchema>) {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Required',
+        description: 'You need to be logged in to create a quiz.',
+      });
+      return;
+    }
     setView('loading');
     const result = await createQuiz(values);
     if ('error' in result) {
@@ -64,8 +75,24 @@ export function QuizFlow() {
       });
       setView('form');
     } else {
-      setQuiz(result);
-      setView('taking');
+      try {
+        const quizToSave = {
+          ...result,
+          userProfileId: user.uid,
+          createdAt: new Date().toISOString(),
+        };
+        const docRef = await addDocumentNonBlocking(collection(firestore, 'users', user.uid, 'quizzes'), quizToSave);
+        setQuiz({ ...result, id: docRef.id });
+        setView('taking');
+      } catch (e) {
+        console.error("Error saving quiz: ", e);
+        toast({
+          variant: "destructive",
+          title: "Failed to save quiz",
+          description: "There was a problem saving your quiz. Please try again."
+        });
+        setView('form');
+      }
     }
   }
 
@@ -74,7 +101,7 @@ export function QuizFlow() {
   }
 
   function handleNextQuestion() {
-    if (currentQuestionIndex < (quiz?.quiz.length ?? 0) - 1) {
+    if (currentQuestionIndex < (quiz?.questions.length ?? 0) - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     } else {
       finishQuiz();
@@ -82,9 +109,9 @@ export function QuizFlow() {
   }
 
   function finishQuiz() {
-    if (!quiz) return;
+    if (!quiz || !user) return;
     let correctCount = 0;
-    const answered = quiz.quiz.map((q, i) => {
+    const answered = quiz.questions.map((q, i) => {
       const userAnswer = selectedAnswers[i];
       const isCorrect = userAnswer === q.correctAnswer;
       if (isCorrect) correctCount++;
@@ -98,6 +125,20 @@ export function QuizFlow() {
 
     setUserAnswers(answered);
     setScore(correctCount);
+
+    const resultToSave: Omit<QuizResult, 'id'> = {
+      quizId: quiz.id!,
+      userProfileId: user.uid,
+      topic: quiz.topic,
+      difficulty: quiz.difficulty,
+      score: correctCount,
+      totalQuestions: quiz.questions.length,
+      userAnswers: answered,
+      completionDate: new Date().toISOString(),
+    };
+    
+    addDocumentNonBlocking(collection(firestore, 'users', user.uid, 'quiz_results'), resultToSave);
+
     setView('results');
   }
 
@@ -122,14 +163,14 @@ export function QuizFlow() {
   }
 
   if (view === 'taking' && quiz) {
-    const currentQuestion: QuizQuestion = quiz.quiz[currentQuestionIndex];
-    const progress = ((currentQuestionIndex + 1) / quiz.quiz.length) * 100;
+    const currentQuestion: QuizQuestion = quiz.questions[currentQuestionIndex];
+    const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
     return (
       <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>
           <Progress value={progress} className="mb-2" />
           <CardTitle className="font-headline text-2xl">{quiz.topic} Quiz</CardTitle>
-          <CardDescription>Question {currentQuestionIndex + 1} of {quiz.quiz.length}</CardDescription>
+          <CardDescription>Question {currentQuestionIndex + 1} of {quiz.questions.length}</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="font-semibold text-lg mb-6">{currentQuestion.question}</p>
@@ -148,7 +189,7 @@ export function QuizFlow() {
         </CardContent>
         <CardFooter>
           <Button onClick={handleNextQuestion} disabled={!selectedAnswers[currentQuestionIndex]} className="ml-auto">
-            {currentQuestionIndex < quiz.quiz.length - 1 ? 'Next Question' : 'Finish Quiz'}
+            {currentQuestionIndex < quiz.questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </CardFooter>
@@ -157,7 +198,7 @@ export function QuizFlow() {
   }
 
   if (view === 'results') {
-    const percentage = quiz ? Math.round((score / quiz.quiz.length) * 100) : 0;
+    const percentage = quiz ? Math.round((score / quiz.questions.length) * 100) : 0;
     return (
       <div className="max-w-3xl mx-auto space-y-6">
         <Card className="text-center">
@@ -167,7 +208,7 @@ export function QuizFlow() {
           </CardHeader>
           <CardContent>
             <p className="text-5xl font-bold text-primary">{percentage}%</p>
-            <p className="text-lg text-muted-foreground">You answered {score} out of {quiz?.quiz.length} questions correctly.</p>
+            <p className="text-lg text-muted-foreground">You answered {score} out of {quiz?.questions.length} questions correctly.</p>
           </CardContent>
           <CardFooter className="justify-center">
             <Button onClick={resetQuiz}>
@@ -259,7 +300,9 @@ export function QuizFlow() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full">Generate Quiz</Button>
+            <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? 'Generating...' : 'Generate Quiz'}
+            </Button>
           </form>
         </Form>
       </CardContent>

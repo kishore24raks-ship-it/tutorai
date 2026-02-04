@@ -18,7 +18,7 @@ const GenerateQuizFromTopicInputSchema = z.object({
 export type GenerateQuizFromTopicInput = z.infer<typeof GenerateQuizFromTopicInputSchema>;
 
 const GenerateQuizFromTopicOutputSchema = z.object({
-  quiz: z.array(
+  questions: z.array(
     z.object({
       question: z.string().describe('The quiz question.'),
       answers: z.array(z.string()).describe('The possible answers to the question.'),
@@ -44,7 +44,7 @@ Difficulty: {{{difficulty}}}
 
 The quiz should be returned in the following JSON format:
 {
-  "quiz": [
+  "questions": [
     {
       "question": "Question 1",
       "answers": ["Answer 1", "Answer 2", "Answer 3", "Answer 4"],

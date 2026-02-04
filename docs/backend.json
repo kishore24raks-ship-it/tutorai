@@ -51,6 +51,19 @@
         "userProfileId": {
           "type": "string",
           "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Quiz)"
+        },
+        "questions": {
+          "type": "array",
+          "description": "The questions in the quiz.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question": { "type": "string" },
+              "answers": { "type": "array", "items": { "type": "string" } },
+              "correctAnswer": { "type": "string" }
+            },
+            "required": ["question", "answers", "correctAnswer"]
+          }
         }
       },
       "required": [
@@ -58,7 +71,8 @@
         "topic",
         "numberOfQuestions",
         "difficulty",
-        "userProfileId"
+        "userProfileId",
+        "questions"
       ]
     },
     "QuizResult": {
@@ -79,14 +93,40 @@
           "type": "string",
           "description": "Reference to UserProfile. (Relationship: UserProfile 1:N QuizResult)"
         },
+        "topic": {
+          "type": "string",
+          "description": "Topic of the quiz."
+        },
+        "difficulty": {
+          "type": "string",
+          "description": "Difficulty of the quiz."
+        },
         "score": {
           "type": "number",
-          "description": "Score obtained in the quiz."
+          "description": "Number of correct answers."
+        },
+        "totalQuestions": {
+          "type": "number",
+          "description": "Total number of questions in the quiz."
         },
         "completionDate": {
           "type": "string",
           "description": "Date and time when the quiz was completed.",
           "format": "date-time"
+        },
+        "userAnswers": {
+          "type": "array",
+          "description": "The user's answers.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "question": { "type": "string" },
+              "selectedAnswer": { "type": "string" },
+              "correctAnswer": { "type": "string" },
+              "isCorrect": { "type": "boolean" }
+            },
+            "required": ["question", "selectedAnswer", "correctAnswer", "isCorrect"]
+          }
         }
       },
       "required": [
@@ -94,7 +134,11 @@
         "quizId",
         "userProfileId",
         "score",
-        "completionDate"
+        "completionDate",
+        "topic",
+        "difficulty",
+        "totalQuestions",
+        "userAnswers"
       ]
     }
   },
