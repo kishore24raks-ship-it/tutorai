@@ -1,0 +1,168 @@
+/**
+ * Core Philosophy: This ruleset enforces a strict user-ownership model.
+ * All user-generated content is private and can only be accessed by the user
+ * who created it. This provides a strong security foundation by default.
+ *
+ * Data Structure: The entire data model is hierarchical, with all user-specific
+ * data nested under the /users/{userId} path. This includes profiles, quizzes,
+ * and quiz results. This structure is fundamental to the security model as it
+ * allows for simple, performant, and highly secure path-based authorization.
+ *
+ * Key Security Decisions:
+ * - User Enumeration Disabled: Listing the top-level `/users` collection is
+ *   explicitly forbidden to prevent scraping of user IDs.
+ * - Path-Based Ownership: All rules rely on the `{userId}` wildcard in the path
+ *   to grant access, ensuring a user can only ever access documents within
+ *   their own data tree.
+ * - No Cross-User Access: There are no shared collections or collaboration
+ *   features. Access is strictly limited to the document owner.
+ *
+ * Denormalization for Authorization: The data structure is inherently designed
+ * for efficient authorization. By placing all data in user-specific subcollections,
+ * we avoid the need for slow and costly `get()` calls to other documents to
+ * verify ownership. The user's ID in the path is the sole source of truth for
+ * an authorization decision.
+ *
+ * Structural Segregation: The design uses structural segregation by default.
+ * All data is inherently private to the user, eliminating the need to mix
+ * public and private data within the same collection.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =====================================================================
+    // Helper Functions
+    // =====================================================================
+
+    /**
+     * Checks if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user's UID matches the provided userId.
+     * This is the foundation of the ownership model.
+     * @param userId The user ID to check against the request's auth UID.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks for ownership AND ensures the document already exists.
+     * Crucial for preventing modification of non-existent documents.
+     * @param userId The user ID to check for ownership.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Validates that the UserProfile being created has an 'id' field
+     * that matches the document's ID (which is the user's UID).
+     * @param userProfileId The document ID from the path.
+     */
+    function isCreatingValidUserProfile(userProfileId) {
+      return request.resource.data.id == userProfileId;
+    }
+
+    /**
+     * Validates that the 'id' field of a UserProfile is immutable upon update.
+     */
+    function isUpdatingValidUserProfile() {
+      return request.resource.data.id == resource.data.id;
+    }
+
+    /**
+     * Validates that the Quiz being created has a 'userProfileId' field
+     * that matches the parent user's document ID.
+     * @param userProfileId The user ID from the path.
+     */
+    function isCreatingValidQuiz(userProfileId) {
+      return request.resource.data.userProfileId == userProfileId;
+    }
+
+    /**
+     * Validates that the 'userProfileId' field of a Quiz is immutable upon update.
+     */
+    function isUpdatingValidQuiz() {
+      return request.resource.data.userProfileId == resource.data.userProfileId;
+    }
+
+    /**
+     * Validates that the QuizResult being created has a 'userProfileId' field
+     * that matches the parent user's document ID.
+     * @param userProfileId The user ID from the path.
+     */
+    function isCreatingValidQuizResult(userProfileId) {
+      return request.resource.data.userProfileId == userProfileId;
+    }
+
+    /**
+     * Validates that the 'userProfileId' field of a QuizResult is immutable upon update.
+     */
+    function isUpdatingValidQuizResult() {
+      return request.resource.data.userProfileId == resource.data.userProfileId;
+    }
+
+    // =====================================================================
+    // Collection Rules
+    // =====================================================================
+
+    /**
+     * @description A user can manage their own profile document. No other
+     *              user can read or write to it. Listing all users is disabled.
+     * @path /users/{userProfileId}
+     * @allow (create) An authenticated user with UID 'user_abc' can create their own profile at /users/user_abc.
+     * @deny (get) A user 'user_xyz' cannot read the profile at /users/user_abc.
+     * @deny (list) No user can list all documents in the /users collection.
+     * @principle Restricts access to a user's own data tree and prevents user enumeration.
+     */
+    match /users/{userProfileId} {
+      allow get: if isOwner(userProfileId);
+      allow list: if false;
+      allow create: if isOwner(userProfileId) && isCreatingValidUserProfile(userProfileId);
+      allow update: if isExistingOwner(userProfileId) && isUpdatingValidUserProfile();
+      allow delete: if isExistingOwner(userProfileId);
+    }
+
+    /**
+     * @description A user can manage their own quizzes. Quizzes are stored
+     *              in a subcollection under the user's profile document.
+     * @path /users/{userProfileId}/quizzes/{quizId}
+     * @allow (create) User 'user_abc' can create a new quiz at /users/user_abc/quizzes/quiz_123.
+     * @allow (list) User 'user_abc' can list all quizzes in their own subcollection.
+     * @deny (get) User 'user_xyz' cannot read a quiz at /users/user_abc/quizzes/quiz_123.
+     * @deny (update) User 'user_xyz' cannot update a quiz at /users/user_abc/quizzes/quiz_123.
+     * @principle Enforces document ownership for all operations based on the hierarchical path.
+     */
+    match /users/{userProfileId}/quizzes/{quizId} {
+      allow get: if isOwner(userProfileId);
+      allow list: if isOwner(userProfileId);
+      allow create: if isOwner(userProfileId) && isCreatingValidQuiz(userProfileId);
+      allow update: if isExistingOwner(userProfileId) && isUpdatingValidQuiz();
+      allow delete: if isExistingOwner(userProfileId);
+    }
+
+    /**
+     * @description A user can manage their own quiz results. These are stored
+     *              in a subcollection under the user's profile document.
+     * @path /users/{userProfileId}/quiz_results/{quizResultId}
+     * @allow (create) User 'user_abc' can create a new result at /users/user_abc/quiz_results/result_456.
+     * @allow (list) User 'user_abc' can list all results in their own subcollection.
+     * @deny (get) User 'user_xyz' cannot read a result at /users/user_abc/quiz_results/result_456.
+     * @deny (delete) User 'user_xyz' cannot delete a result at /users/user_abc/quiz_results/result_456.
+     * @principle Enforces document ownership for all operations based on the hierarchical path.
+     */
+    match /users/{userProfileId}/quiz_results/{quizResultId} {
+      allow get: if isOwner(userProfileId);
+      allow list: if isOwner(userProfileId);
+      allow create: if isOwner(userProfileId) && isCreatingValidQuizResult(userProfileId);
+      allow update: if isExistingOwner(userProfileId) && isUpdatingValidQuizResult();
+      allow delete: if isExistingOwner(userProfileId);
+    }
+  }
+}
