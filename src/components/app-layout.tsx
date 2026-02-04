@@ -7,6 +7,7 @@ import {
   FileText,
   History,
   LayoutDashboard,
+  Palette,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -31,6 +32,7 @@ const menuItems = [
   { href: '/chatbot', label: 'AI Chatbot', icon: Bot },
   { href: '/quiz', label: 'Quiz Generator', icon: FileText },
   { href: '/history', label: 'Quiz History', icon: History },
+  { href: '/drawing', label: 'Drawing Tool', icon: Palette },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
