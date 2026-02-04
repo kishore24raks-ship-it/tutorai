@@ -10,7 +10,7 @@ import {
   Palette,
   Gamepad2,
   Swords,
-  SoccerBall,
+  Futbol,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -38,7 +38,7 @@ const menuItems = [
   { href: '/drawing', label: 'Drawing Tool', icon: Palette },
   { href: '/game', label: 'Relaxing Game', icon: Gamepad2 },
   { href: '/cricket', label: 'Cricket Game', icon: Swords },
-  { href: '/football', label: 'Football Game', icon: SoccerBall },
+  { href: '/football', label: 'Football Game', icon: Futbol },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
