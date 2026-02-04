@@ -1,20 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { doc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Icons } from '@/components/icons';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useAuth, useUser, useFirestore, setDocumentNonBlocking, initiateEmailSignIn, initiateEmailSignUp } from '@/firebase';
+import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 const signupSchema = z.object({
@@ -34,7 +34,6 @@ export default function AuthPage() {
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
-  const [isSigningUp, setIsSigningUp] = useState(false);
 
   const signupForm = useForm<z.infer<typeof signupSchema>>({
     resolver: zodResolver(signupSchema),
@@ -47,36 +46,31 @@ export default function AuthPage() {
   });
 
   useEffect(() => {
+    // If user is already logged in, redirect to dashboard.
     if (user && !isUserLoading) {
-      // Create user profile if it's a new user from our signup flow state
-      if (isSigningUp) {
-        const { name, email } = signupForm.getValues();
-        const userProfileRef = doc(firestore, 'users', user.uid);
-        setDocumentNonBlocking(userProfileRef, {
-          id: user.uid,
-          name: name,
-          email: email,
-        }, { merge: true }).catch((error) => {
-            toast({
-                variant: 'destructive',
-                title: 'Profile Creation Failed',
-                description: 'Could not save your user profile.',
-            });
-            console.error("Error creating user profile:", error);
-        });
-        setIsSigningUp(false); // Reset the state
-      }
       router.push('/dashboard');
     }
-  }, [user, isUserLoading, router, firestore, signupForm, isSigningUp, toast]);
+  }, [user, isUserLoading, router]);
 
   const onSignupSubmit = async (values: z.infer<typeof signupSchema>) => {
-    setIsSigningUp(true); // Set state to indicate signup flow
     try {
-      await initiateEmailSignUp(auth, values.email, values.password);
-      // The useEffect will handle the redirect and profile creation on user state change.
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const newUser = userCredential.user;
+
+      const userProfileRef = doc(firestore, 'users', newUser.uid);
+      await setDocumentNonBlocking(userProfileRef, {
+        id: newUser.uid,
+        name: values.name,
+        email: values.email,
+      }, { merge: true });
+
+      toast({
+        title: 'Signup Successful',
+        description: 'Welcome! Redirecting you to the dashboard...',
+      });
+      
+      router.push('/dashboard');
     } catch (error: any) {
-      setIsSigningUp(false); // Reset on error
       toast({
         variant: 'destructive',
         title: 'Sign-up Failed',
@@ -87,8 +81,12 @@ export default function AuthPage() {
 
   const onLoginSubmit = async (values: z.infer<typeof loginSchema>) => {
     try {
-      await initiateEmailSignIn(auth, values.email, values.password);
-      // The useEffect will handle the redirect on user state change.
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      toast({
+          title: 'Login Successful',
+          description: 'Welcome back! Redirecting you to the dashboard...',
+      });
+      router.push('/dashboard');
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -97,6 +95,14 @@ export default function AuthPage() {
       });
     }
   };
+
+  if (isUserLoading || user) {
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center">
+            <Icons.logo className="h-16 w-16 animate-pulse text-primary" />
+        </div>
+    );
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
