@@ -143,7 +143,7 @@ export function ChessGame() {
       </CardHeader>
       <CardContent className="flex justify-center p-2 sm:p-4">
         <div className={cn(
-            "grid grid-cols-8 border-2 border-primary bg-background overflow-hidden rounded-md",
+            "grid grid-cols-8 border-2 border-stone-700 bg-background overflow-hidden rounded-md",
             isAiThinking && "opacity-50 pointer-events-none"
         )}>
           {board.map((row, rowIndex) =>
@@ -159,8 +159,8 @@ export function ChessGame() {
                   onClick={() => handleSquareClick(rowIndex, colIndex)}
                   className={cn(
                     'w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center text-4xl cursor-pointer transition-colors',
-                    isLightSquare ? 'bg-accent/50' : 'bg-primary/20',
-                    isSelected ? 'ring-2 ring-inset ring-yellow-400' : 'hover:bg-primary/40',
+                    isLightSquare ? 'bg-stone-200' : 'bg-stone-500',
+                    isSelected ? 'ring-2 ring-inset ring-yellow-400' : 'hover:bg-stone-400',
                     turn === 'black' && 'cursor-not-allowed'
                   )}
                 >
