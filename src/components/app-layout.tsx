@@ -10,7 +10,7 @@ import {
   Palette,
   Gamepad2,
   Swords,
-  Chessboard,
+  Puzzle,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -39,7 +39,7 @@ const menuItems = [
   { href: '/game', label: 'Relaxing Game', icon: Gamepad2 },
   { href: '/cricket', label: 'Cricket Game', icon: Swords },
   { href: '/football', label: 'Football Game', icon: Icons.Futbol },
-  { href: '/chess', label: 'Chess Game', icon: Chessboard },
+  { href: '/chess', label: 'Chess Game', icon: Puzzle },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
