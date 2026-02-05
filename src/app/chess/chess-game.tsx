@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 
 type Piece = string | null;
 type Board = Piece[][];
+type Square = { row: number; col: number };
 
 const initialBoard: Board = [
   ['♜', '♞', '♝', '♛', '♚', '♝', '♞', '♜'], // Black pieces
@@ -24,20 +25,66 @@ const whitePieces = ['♔', '♕', '♖', '♗', '♘', '♙'];
 const blackPieces = ['♚', '♛', '♜', '♝', '♞', '♟'];
 
 export function ChessGame() {
-  const [board, setBoard] = useState<Board>(initialBoard);
+  const [board, setBoard] = useState<Board>(JSON.parse(JSON.stringify(initialBoard)));
   const [turn, setTurn] = useState<'white' | 'black'>('white');
   const [message, setMessage] = useState("White's turn to move.");
+  const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
 
   const resetGame = () => {
-    setBoard(initialBoard);
+    setBoard(JSON.parse(JSON.stringify(initialBoard)));
     setTurn('white');
     setMessage("White's turn to move.");
+    setSelectedSquare(null);
   };
   
-  // This is a placeholder. Full game logic is very complex.
   const handleSquareClick = (row: number, col: number) => {
-    // For now, it doesn't do anything.
-    setMessage("This is a static board for now. Interactive gameplay is not yet implemented.");
+    const piece = board[row][col];
+
+    if (selectedSquare) {
+      // It's a destination square
+      const pieceToMove = board[selectedSquare.row][selectedSquare.col];
+
+      // Prevent moving onto one's own piece
+      if (piece) {
+        const isMovingPieceWhite = whitePieces.includes(pieceToMove!);
+        const isDestPieceWhite = whitePieces.includes(piece);
+        if (isMovingPieceWhite === isDestPieceWhite) {
+          // It's a move to another of your own pieces, so select the new piece instead
+          setSelectedSquare({ row, col });
+          setMessage(`Selected ${piece}. Choose a destination square.`);
+          return;
+        }
+      }
+      
+      // Move the piece
+      const newBoard = board.map(r => [...r]);
+      newBoard[row][col] = pieceToMove;
+      newBoard[selectedSquare.row][selectedSquare.col] = null;
+      setBoard(newBoard);
+
+      // Switch turn
+      const newTurn = turn === 'white' ? 'black' : 'white';
+      setTurn(newTurn);
+      setMessage(`${newTurn.charAt(0).toUpperCase() + newTurn.slice(1)}'s turn to move.`);
+      setSelectedSquare(null);
+      
+    } else {
+      // It's a source square
+      if (!piece) {
+        return; // Clicked on empty square
+      }
+
+      // Check if it's the correct player's turn
+      const isPieceWhite = whitePieces.includes(piece);
+      if ((turn === 'white' && !isPieceWhite) || (turn === 'black' && isPieceWhite)) {
+        setMessage(`It's ${turn}'s turn to move.`);
+        return;
+      }
+      
+      // Select the piece
+      setSelectedSquare({ row, col });
+      setMessage(`Selected ${piece}. Choose a destination square.`);
+    }
   };
 
   return (
@@ -53,6 +100,7 @@ export function ChessGame() {
               const isLightSquare = (rowIndex + colIndex) % 2 === 0;
               const isWhitePiece = whitePieces.includes(piece || '');
               const isBlackPiece = blackPieces.includes(piece || '');
+              const isSelected = selectedSquare?.row === rowIndex && selectedSquare?.col === colIndex;
 
               return (
                 <div
@@ -61,7 +109,7 @@ export function ChessGame() {
                   className={cn(
                     'w-12 h-12 sm:w-16 sm:h-16 flex items-center justify-center text-4xl cursor-pointer transition-colors',
                     isLightSquare ? 'bg-accent/50' : 'bg-primary/20',
-                    'hover:bg-primary/40'
+                    isSelected ? 'ring-2 ring-inset ring-yellow-400' : 'hover:bg-primary/40'
                   )}
                 >
                   <span className={cn(
