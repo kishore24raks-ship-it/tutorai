@@ -3,3 +3,4 @@ config();
 
 import '@/ai/flows/generate-quiz-from-topic.ts';
 import '@/ai/flows/explain-concept-with-chatbot.ts';
+import '@/ai/flows/get-chess-move.ts';
